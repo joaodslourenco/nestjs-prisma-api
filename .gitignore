@@ -1,4 +1,5 @@
 .env
+/.docker
 
 # compiled output
 /dist
