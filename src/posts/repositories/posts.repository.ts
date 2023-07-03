@@ -34,7 +34,9 @@ export class PostsRepository {
     }
 
     async findAll(): Promise<PostEntity[]> {
-        return this.prisma.post.findMany();
+        return this.prisma.post.findMany({
+            include: { author: { select: { name: true } } },
+        });
     }
 
     async findOne(id: number): Promise<PostEntity> {
@@ -42,6 +44,7 @@ export class PostsRepository {
             where: {
                 id,
             },
+            include: { author: { select: { name: true, email: true } } },
         });
         return post;
     }
@@ -50,9 +53,37 @@ export class PostsRepository {
         id: number,
         updatePostDto: UpdatePostDto,
     ): Promise<PostEntity> {
+        const { authorEmail } = updatePostDto;
+
+        if (!authorEmail) {
+            return this.prisma.post.update({
+                where: { id },
+                data: updatePostDto,
+            });
+        }
+        delete updatePostDto.authorEmail;
+
+        const user = await this.prisma.user.findUnique({
+            where: { email: authorEmail },
+        });
+
+        if (!user) {
+            throw new NotFoundError('Author not found.');
+        }
+
+        const data: Prisma.PostUpdateInput = {
+            ...updatePostDto,
+            author: {
+                connect: {
+                    email: authorEmail,
+                },
+            },
+        };
+
         const updatedPost = await this.prisma.post.update({
             where: { id },
-            data: updatePostDto,
+            data,
+            include: { author: { select: { name: true } } },
         });
         return updatedPost;
     }
